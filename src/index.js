@@ -255,7 +255,7 @@ async function authenticateAndCheckQuota(request, env, endpoint) {
   return { apiKeyHash, plan: keyRow.plan };
 }
 
-async function ensureAuthTables(env) {
+async function ensureCoreTables(env) {
   if (coreTablesReady) return;
 
   await env.DB.batch([
