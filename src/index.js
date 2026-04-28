@@ -188,7 +188,11 @@ export default {
   },
 };
 
+let authTablesReady = false;
+
 async function authenticateAndCheckQuota(request, env, endpoint) {
+  await ensureAuthTables(env);
+
   const apiKey = request.headers.get("x-api-key");
   if (!apiKey) {
     return {
@@ -249,6 +253,39 @@ async function authenticateAndCheckQuota(request, env, endpoint) {
   }
 
   return { apiKeyHash, plan: keyRow.plan };
+}
+
+async function ensureAuthTables(env) {
+  if (authTablesReady) return;
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS api_keys (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        api_key_hash TEXT NOT NULL UNIQUE,
+        client_name TEXT NOT NULL,
+        plan TEXT NOT NULL,
+        daily_limit INTEGER NOT NULL DEFAULT 1000,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS usage_daily (
+        usage_date TEXT NOT NULL,
+        api_key_hash TEXT NOT NULL,
+        endpoint TEXT NOT NULL,
+        request_count INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (usage_date, api_key_hash, endpoint)
+      )
+    `),
+    env.DB.prepare(`
+      INSERT OR IGNORE INTO api_keys (api_key_hash, client_name, plan, daily_limit, is_active)
+      VALUES ('f28dd4e2d4fb7ae946cff14ede2047cd08974df5533670855fb5e2f54bd4a26f', 'demo-client', 'free', 1000, 1)
+    `),
+  ]);
+
+  authTablesReady = true;
 }
 
 async function incrementUsage(env, apiKeyHash, endpoint) {
