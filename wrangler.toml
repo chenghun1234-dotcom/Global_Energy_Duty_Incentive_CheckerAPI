@@ -5,4 +5,4 @@ compatibility_date = "2026-04-28"
 [[d1_databases]]
 binding = "DB"
 database_name = "energy-duty-db"
-database_id = "REPLACE_WITH_REAL_D1_DATABASE_ID"
+database_id = "918134bf-e4ea-4b46-aa24-68abf9f1ddde"
