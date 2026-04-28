@@ -27,6 +27,8 @@ paths:
       tags: [tax]
       summary: Lookup expected tariffs and taxes for a trade route
       operationId: postTaxLookup
+      security:
+        - ApiKeyAuth: []
       requestBody:
         required: true
         content:
@@ -55,6 +57,8 @@ paths:
       tags: [incentives]
       summary: Get active incentive zones by country
       operationId: getIncentiveZones
+      security:
+        - ApiKeyAuth: []
       parameters:
         - in: query
           name: country
@@ -86,6 +90,11 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key
   responses:
     BadRequest:
       description: Invalid request
