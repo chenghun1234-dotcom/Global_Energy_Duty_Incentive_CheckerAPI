@@ -1,0 +1,28 @@
+{
+  "name": "global-energy-duty-incentive-api",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "d1:migrate:local": "wrangler d1 execute energy-duty-db --local --file=schema.sql",
+    "d1:seed:local": "wrangler d1 execute energy-duty-db --local --file=seed.sql",
+    "sources:csv-to-sql": "python scripts/csv_to_d1_inserts.py",
+    "sources:d1-normalize:local": "wrangler d1 execute energy-duty-db --local --file=sql/import_normalization.sql",
+    "sources:d1-load-staging:local": "wrangler d1 execute energy-duty-db --local --file=sql/staging_inserts.sql",
+    "sources:snapshots-to-sql": "python scripts/snapshots_to_d1_observation_sql.py",
+    "sources:d1-load-snapshots:local": "wrangler d1 execute energy-duty-db --local --file=sql/snapshots_upsert.sql",
+    "sources:migrate:add-captured-at:local": "wrangler d1 execute energy-duty-db --local --file=sql/migrate_add_captured_at.sql",
+    "sources:migrate:ensure-captured-at:local": "python scripts/ensure_captured_at_migration.py --db energy-duty-db",
+    "sources:cleanup-sql": "python scripts/generate_cleanup_sql.py",
+    "sources:d1-cleanup:local": "wrangler d1 execute energy-duty-db --local --file=sql/cleanup_source_observation_keep_latest_n.generated.sql",
+    "qa:check:kr-jp-us-21:local": "wrangler d1 execute energy-duty-db --local --file=sql/qa_check_kr_jp_us_21.sql",
+    "qa:report:kr-jp-us-21:local": "wrangler d1 execute energy-duty-db --local --file=sql/qa_mismatch_report_kr_jp_us_21.sql",
+    "qa:generate:kr-jp-us-21:local": "python scripts/generate_qa_report.py --db energy-duty-db",
+    "qa:generate:kr-jp-us-21:remote": "python scripts/generate_qa_report.py --db energy-duty-db --remote",
+    "test:smoke:local": "python scripts/smoke_test.py --base-url http://127.0.0.1:8787 --api-key demo-free-key-001"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

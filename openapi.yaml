@@ -1,0 +1,259 @@
+openapi: 3.1.0
+info:
+  title: Global Energy Duty & Incentive Checker API
+  version: 1.0.0
+  description: API for tariff lookups and incentive zone discovery for energy-related cross-border trade.
+servers:
+  - url: https://api.example.com
+tags:
+  - name: health
+  - name: tax
+  - name: incentives
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check
+      operationId: getHealth
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthResponse"
+  /tax-lookup:
+    post:
+      tags: [tax]
+      summary: Lookup expected tariffs and taxes for a trade route
+      operationId: postTaxLookup
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaxLookupRequest"
+      responses:
+        "200":
+          description: Tariff lookup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaxLookupResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "404":
+          description: No matching tariff rule found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          $ref: "#/components/responses/InternalError"
+  /incentive-zones:
+    get:
+      tags: [incentives]
+      summary: Get active incentive zones by country
+      operationId: getIncentiveZones
+      parameters:
+        - in: query
+          name: country
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
+          description: Destination country (ISO 3166-1 alpha-2)
+        - in: query
+          name: asset_type
+          required: false
+          schema:
+            type: string
+        - in: query
+          name: as_of
+          required: false
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Incentive zones
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IncentiveZonesResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "500":
+          $ref: "#/components/responses/InternalError"
+components:
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InternalError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    HealthResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          const: ok
+        timestamp:
+          type: string
+          format: date-time
+      required: [status, timestamp]
+    TaxLookupRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        origin_country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        destination_country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        trade_type:
+          type: string
+          enum: [import, export]
+        asset_type:
+          type: string
+          enum: [crude_oil, diesel, lng, coal, battery_material]
+        hs_code:
+          type: string
+          minLength: 4
+          maxLength: 10
+        trade_date:
+          type: string
+          format: date
+        declared_value_usd:
+          type: number
+          minimum: 0
+      required:
+        - origin_country
+        - destination_country
+        - trade_type
+        - asset_type
+        - trade_date
+    TaxLookupResponse:
+      type: object
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        query:
+          $ref: "#/components/schemas/TaxLookupRequest"
+        result:
+          type: object
+          properties:
+            base_tariff_rate:
+              type: number
+            additional_tax_rate:
+              type: number
+            vat_rate:
+              type: number
+            estimated_total_rate:
+              type: number
+            estimated_total_tax_usd:
+              type: number
+          required:
+            - base_tariff_rate
+            - additional_tax_rate
+            - vat_rate
+            - estimated_total_rate
+            - estimated_total_tax_usd
+        meta:
+          type: object
+          properties:
+            rule_version:
+              type: string
+            last_updated_at:
+              type: string
+              format: date-time
+            source_refs:
+              type: array
+              items:
+                type: string
+                format: uri
+          required: [rule_version, last_updated_at, source_refs]
+      required: [request_id, query, result, meta]
+    IncentiveZone:
+      type: object
+      properties:
+        zone_code:
+          type: string
+        zone_name:
+          type: string
+        city:
+          type: string
+        incentives:
+          type: array
+          items:
+            type: string
+        conditions:
+          type: string
+        effective_from:
+          type: string
+          format: date
+        effective_to:
+          oneOf:
+            - type: string
+              format: date
+            - type: "null"
+        source_url:
+          type: string
+          format: uri
+      required:
+        - zone_code
+        - zone_name
+        - incentives
+        - conditions
+        - effective_from
+        - effective_to
+        - source_url
+    IncentiveZonesResponse:
+      type: object
+      properties:
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        asset_type:
+          oneOf:
+            - type: string
+            - type: "null"
+        as_of:
+          type: string
+          format: date
+        zones:
+          type: array
+          items:
+            $ref: "#/components/schemas/IncentiveZone"
+        meta:
+          type: object
+          properties:
+            rule_version:
+              type: string
+            last_updated_at:
+              type: string
+              format: date-time
+          required: [rule_version, last_updated_at]
+      required: [country, asset_type, as_of, zones, meta]
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: object
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+          required: [code, message]
+      required: [error]
