@@ -1,8 +1,17 @@
+import { renderHomePage } from "./ui.js";
+
 export default {
   async fetch(request, env) {
     try {
       const url = new URL(request.url);
       const path = url.pathname;
+
+      if (request.method === "GET" && path === "/") {
+        return new Response(renderHomePage(), {
+          status: 200,
+          headers: { "content-type": "text/html; charset=utf-8" },
+        });
+      }
 
       if (request.method === "GET" && path === "/health") {
         return json({ status: "ok", timestamp: new Date().toISOString() }, 200);
