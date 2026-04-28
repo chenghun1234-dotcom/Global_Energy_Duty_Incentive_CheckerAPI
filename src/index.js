@@ -188,10 +188,10 @@ export default {
   },
 };
 
-let authTablesReady = false;
+let coreTablesReady = false;
 
 async function authenticateAndCheckQuota(request, env, endpoint) {
-  await ensureAuthTables(env);
+  await ensureCoreTables(env);
 
   const apiKey = request.headers.get("x-api-key");
   if (!apiKey) {
@@ -256,9 +256,54 @@ async function authenticateAndCheckQuota(request, env, endpoint) {
 }
 
 async function ensureAuthTables(env) {
-  if (authTablesReady) return;
+  if (coreTablesReady) return;
 
   await env.DB.batch([
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS tariff_rules (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        origin_country TEXT NOT NULL,
+        destination_country TEXT NOT NULL,
+        trade_type TEXT NOT NULL,
+        asset_type TEXT NOT NULL,
+        hs_code TEXT,
+        base_tariff_rate REAL NOT NULL,
+        additional_tax_rate REAL NOT NULL DEFAULT 0,
+        vat_rate REAL NOT NULL DEFAULT 0,
+        effective_from TEXT NOT NULL,
+        effective_to TEXT,
+        source_url TEXT NOT NULL,
+        version TEXT NOT NULL
+      )
+    `),
+    env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS incentive_zones (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        country_code TEXT NOT NULL,
+        zone_code TEXT NOT NULL,
+        zone_name TEXT NOT NULL,
+        city TEXT,
+        asset_type TEXT,
+        incentives_json TEXT NOT NULL,
+        conditions TEXT,
+        effective_from TEXT NOT NULL,
+        effective_to TEXT,
+        source_url TEXT NOT NULL,
+        version TEXT NOT NULL
+      )
+    `),
+    env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_tariff_lookup
+      ON tariff_rules(origin_country, destination_country, trade_type, asset_type, effective_from, effective_to)
+    `),
+    env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_tariff_lookup_hs
+      ON tariff_rules(origin_country, destination_country, trade_type, hs_code, effective_from, effective_to)
+    `),
+    env.DB.prepare(`
+      CREATE INDEX IF NOT EXISTS idx_zone_lookup
+      ON incentive_zones(country_code, asset_type, effective_from, effective_to)
+    `),
     env.DB.prepare(`
       CREATE TABLE IF NOT EXISTS api_keys (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -285,7 +330,39 @@ async function ensureAuthTables(env) {
     `),
   ]);
 
-  authTablesReady = true;
+  const tariffCountRow = await env.DB.prepare("SELECT COUNT(*) AS cnt FROM tariff_rules").first();
+  const zoneCountRow = await env.DB.prepare("SELECT COUNT(*) AS cnt FROM incentive_zones").first();
+  const tariffCount = Number(tariffCountRow?.cnt ?? 0);
+  const zoneCount = Number(zoneCountRow?.cnt ?? 0);
+
+  if (tariffCount === 0) {
+    await env.DB.batch([
+      env.DB.prepare(`
+        INSERT INTO tariff_rules (
+          origin_country, destination_country, trade_type, asset_type, hs_code,
+          base_tariff_rate, additional_tax_rate, vat_rate,
+          effective_from, effective_to, source_url, version
+        ) VALUES
+          ('KR', 'JP', 'export', 'diesel', '271019', 0.03, 0.00, 0.10, '2026-01-01', NULL, 'https://www.customs.go.jp/english/tariff/index.htm', 'v2026.04.28'),
+          ('KR', 'JP', 'export', 'lng', '271111', 0.02, 0.00, 0.10, '2026-01-01', NULL, 'https://www.customs.go.jp/english/tariff/index.htm', 'v2026.04.28'),
+          ('KR', 'JP', 'export', 'crude_oil', '270900', 0.00, 0.00, 0.10, '2026-01-01', NULL, 'https://www.customs.go.jp/english/tariff/index.htm', 'v2026.04.28')
+      `),
+    ]);
+  }
+
+  if (zoneCount === 0) {
+    await env.DB.batch([
+      env.DB.prepare(`
+        INSERT INTO incentive_zones (
+          country_code, zone_code, zone_name, city, asset_type, incentives_json,
+          conditions, effective_from, effective_to, source_url, version
+        ) VALUES
+          ('AE', 'AE-DMCC', 'DMCC Free Zone', 'Dubai', 'energy', '["corporate_tax_reduction","import_duty_exemption"]', 'licensed entities only', '2025-01-01', NULL, 'https://example.gov/freezone/dmcc', 'v2026.04.20')
+      `),
+    ]);
+  }
+
+  coreTablesReady = true;
 }
 
 async function incrementUsage(env, apiKeyHash, endpoint) {
