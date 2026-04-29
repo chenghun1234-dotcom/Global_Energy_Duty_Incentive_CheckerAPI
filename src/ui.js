@@ -128,7 +128,7 @@ export function renderHomePage() {
     <div class="top">
       <div>
         <h1>Global Energy Duty & Incentive Checker API</h1>
-        <div class="small">국가 간 에너지 자산 거래 관세/인센티브 조회</div>
+        <div class="small">Cross-border energy asset duty and incentive lookup</div>
       </div>
       <div class="apikey">
         <span class="small">x-api-key</span>
@@ -153,7 +153,7 @@ export function renderHomePage() {
         </div>
         <label>Declared Value (USD)</label>
         <input id="tValue" type="number" value="100000" />
-        <button id="taxBtn">조회 실행</button>
+        <button id="taxBtn">Run Lookup</button>
         <div id="taxStatus" class="status"></div>
       </section>
 
@@ -165,7 +165,7 @@ export function renderHomePage() {
         </div>
         <label>As of</label>
         <input id="iDate" type="date" value="2026-04-29" />
-        <button id="incBtn">조회 실행</button>
+        <button id="incBtn">Run Lookup</button>
         <div id="incStatus" class="status"></div>
       </section>
 
@@ -215,9 +215,9 @@ export function renderHomePage() {
       };
       try {
         const r = await callApi("POST", "/tax-lookup", payload);
-        setStatus(taxStatus, r.ok, r.ok ? "조회 성공" : "조회 실패 (" + r.status + ")");
+        setStatus(taxStatus, r.ok, r.ok ? "Lookup successful" : "Lookup failed (" + r.status + ")");
       } catch (e) {
-        setStatus(taxStatus, false, "요청 오류");
+        setStatus(taxStatus, false, "Request error");
       }
     });
 
@@ -229,13 +229,12 @@ export function renderHomePage() {
       const q = new URLSearchParams({ country: c, asset_type: a, as_of: d });
       try {
         const r = await callApi("GET", "/incentive-zones?" + q.toString());
-        setStatus(incStatus, r.ok, r.ok ? "조회 성공" : "조회 실패 (" + r.status + ")");
+        setStatus(incStatus, r.ok, r.ok ? "Lookup successful" : "Lookup failed (" + r.status + ")");
       } catch (e) {
-        setStatus(incStatus, false, "요청 오류");
+        setStatus(incStatus, false, "Request error");
       }
     });
   </script>
 </body>
 </html>`;
 }
-
